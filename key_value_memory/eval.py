@@ -51,7 +51,7 @@ FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
-    print("{}={}".format(attr.upper(), value))
+    print(("{}={}".format(attr.upper(), value)))
 print("")
 
 # Load data. Load your own data here
@@ -61,7 +61,7 @@ json_file = "data/pruned_wiki_json_no_stopwords.json"
 notes_file = 'data/new_examples_no_stopwords.xml'
 
 r = data_helpers.load_memory_and_notes(
-    json_file, notes_file, sys.maxint, sys.maxint, FLAGS.note_words_limit, FLAGS.vocab_limit)
+    json_file, notes_file, sys.maxsize, sys.maxsize, FLAGS.note_words_limit, FLAGS.vocab_limit)
 description_list = r[0]
 labels_list = r[1]
 memory_value = r[2]
@@ -92,7 +92,7 @@ for idx, ite_dict in enumerate(memory_key):
     num_words = 0
     tmp_page = []
     # k is section name
-    for k, v in ite_dict.iteritems():
+    for k, v in ite_dict.items():
         for ite in v:
             for i in ite:
                 num_words += 1
@@ -165,7 +165,7 @@ with graph.as_default():
                         count += 1
                     else:
                         break
-                print tokenzied_input
+                print(tokenzied_input)
                 diff = FLAGS.note_words_limit - len(tokenzied_input)
                 if(diff > 0):
                     for i in range(diff):
@@ -178,13 +178,13 @@ with graph.as_default():
                     memn2n._memory_value: memory_value
                 }
                 probs = sess.run(memn2n.probs, feed_dict)
-                print probs
+                print(probs)
                 results = probs[0]
-                indices = sorted(range(len(results)), key=lambda i: results[i])[-10:]
+                indices = sorted(list(range(len(results))), key=lambda i: results[i])[-10:]
                 with open('mn_results', 'a') as f:
                     for ite in indices:
                         f.write(titles[ite] + "\n")
                     f.write('\n')
 
-            print 'Job is done. Check the results!'
+            print('Job is done. Check the results!')
             exit(0)

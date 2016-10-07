@@ -1,7 +1,7 @@
 """Example running MemN2N on a single bAbI task.
 Download tasks from facebook.ai/babi """
-from __future__ import absolute_import
-from __future__ import print_function
+
+
 
 from data_utils import load_task, vectorize_data
 from sklearn import cross_validation, metrics
@@ -11,6 +11,10 @@ from six.moves import range
 
 import tensorflow as tf
 import numpy as np
+<<<<<<< HEAD
+import functools
+=======
+>>>>>>> 70f0cb4b17f131bb2e081c180338905d9d933649
 from memn2n_kv import zero_nil_slot, add_gradient_noise
 
 tf.flags.DEFINE_float("epsilon", 0.1, "Epsilon value for Adam Optimizer.")
@@ -40,13 +44,13 @@ print("Started Task:", FLAGS.task_id)
 train, test = load_task(FLAGS.data_dir, FLAGS.task_id)
 data = train + test
 
-vocab = sorted(reduce(lambda x, y: x | y, (set(list(chain.from_iterable(s)) + q + a) for s, q, a in data)))
+vocab = sorted(functools.reduce(lambda x, y: x | y, (set(list(chain.from_iterable(s)) + q + a) for s, q, a in data)))
 word_idx = dict((c, i + 1) for i, c in enumerate(vocab))
 
-max_story_size = max(map(len, (s for s, _, _ in data)))
-mean_story_size = int(np.mean(map(len, (s for s, _, _ in data))))
-sentence_size = max(map(len, chain.from_iterable(s for s, _, _ in data)))
-query_size = max(map(len, (q for _, q, _ in data)))
+max_story_size = max(list(map(len, (s for s, _, _ in data))))
+mean_story_size = int(np.mean(list(map(len, (s for s, _, _ in data)))))
+sentence_size = max(list(map(len, chain.from_iterable(s for s, _, _ in data))))
+query_size = max(list(map(len, (q for _, q, _ in data))))
 memory_size = min(FLAGS.memory_size, max_story_size)
 vocab_size = len(word_idx) + 1 # +1 for nil word
 sentence_size = max(query_size, sentence_size) # for the position
@@ -76,7 +80,7 @@ test_labels = np.argmax(testA, axis=1)
 val_labels = np.argmax(valA, axis=1)
 
 batch_size = FLAGS.batch_size
-batches = zip(range(0, n_train-batch_size, batch_size), range(batch_size, n_train, batch_size))
+batches = list(zip(list(range(0, n_train-batch_size, batch_size)), list(range(batch_size, n_train, batch_size))))
 
 with tf.Graph().as_default():
     session_conf = tf.ConfigProto(
@@ -147,18 +151,15 @@ with tf.Graph().as_default():
                 # total_cost += cost_t
             train_acc = metrics.accuracy_score(np.array(train_preds), train_labels)
             print('-----------------------')
-            print('Epoch', t)
-            print('Training Accuracy: {0:.2f}'.format(train_acc))
-            print('-----------------------')
+            print('Epoch', t, 'Training Accuracy: {0:.2f}'.format(train_acc))
                 
             if t % FLAGS.evaluation_interval == 0:
                 val_preds = test_step(valS, valQ)
                 val_acc = metrics.accuracy_score(np.array(val_preds), val_labels)
                 print (val_preds)
                 print('-----------------------')
-                print('Epoch', t)
-                print('Validation Accuracy:', val_acc)
-                print('-----------------------')
+                print('Epoch', t, 'Validation Accuracy:', val_acc)
+
         # test on train dataset
         train_preds = test_step(trainS, trainQ)
         train_acc = metrics.accuracy_score(train_labels, train_preds)

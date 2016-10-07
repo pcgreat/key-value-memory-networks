@@ -138,13 +138,13 @@ def main():
         sess.run(init)
         feed_dict = {ar._doc: doc, ar._query: q}
         foutputs = sess.run(ar.doc_r, feed_dict)
-        print foutputs
-        print 10*'*'
+        print(foutputs)
+        print(10*'*')
         doc_outputs = sess.run(ar.doc_outputs, feed_dict)
         probs = sess.run(ar.probs, feed_dict)
-        print doc_outputs
-        print 10*'*'
-        print probs
+        print(doc_outputs)
+        print(10*'*')
+        print(probs)
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 """Example running MemN2N on a single bAbI task.
 Download tasks from facebook.ai/babi """
-from __future__ import absolute_import
-from __future__ import print_function
+
+
 
 from data_utils import load_task, vectorize_data
 from sklearn import cross_validation, metrics
@@ -14,6 +14,7 @@ import time
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+from functools import reduce
 
 timestamp = str(int(time.time()))
 
@@ -48,7 +49,7 @@ with open(FLAGS.param_output_file, 'w') as f:
 print("Started Joint Model")
 
 # load all train/test data
-ids = range(1, 21)
+ids = list(range(1, 21))
 train, test = [], []
 for i in ids:
     tr, te = load_task(FLAGS.data_dir, i)
@@ -59,10 +60,10 @@ data = list(chain.from_iterable(train + test))
 vocab = sorted(reduce(lambda x, y: x | y, (set(list(chain.from_iterable(s)) + q + a) for s, q, a in data)))
 word_idx = dict((c, i + 1) for i, c in enumerate(vocab))
 
-max_story_size = max(map(len, (s for s, _, _ in data)))
+max_story_size = max(list(map(len, (s for s, _, _ in data))))
 mean_story_size = int(np.mean([len(s) for s, _, _ in data]))
-sentence_size = max(map(len, chain.from_iterable(s for s, _, _ in data)))
-query_size = max(map(len, (q for _, q, _ in data)))
+sentence_size = max(list(map(len, chain.from_iterable(s for s, _, _ in data))))
+query_size = max(list(map(len, (q for _, q, _ in data))))
 memory_size = min(FLAGS.memory_size, max_story_size)
 vocab_size = len(word_idx) + 1 # +1 for nil word
 sentence_size = max(query_size, sentence_size) # for the position
@@ -117,7 +118,7 @@ tf.set_random_seed(FLAGS.random_state)
 batch_size = FLAGS.batch_size
 
 # This avoids feeding 1 task after another, instead each batch has a random sampling of tasks
-batches = zip(range(0, n_train-batch_size, batch_size), range(batch_size, n_train, batch_size))
+batches = list(zip(list(range(0, n_train-batch_size, batch_size)), list(range(batch_size, n_train, batch_size))))
 batches = [(start, end) for start, end in batches]
 
 with tf.Session() as sess:
@@ -178,8 +179,8 @@ with tf.Session() as sess:
 
         if i % FLAGS.evaluation_interval == 0 or i == FLAGS.epochs:
             train_accs = []
-            for start in range(0, n_train, n_train/20):
-                end = start + n_train/20
+            for start in range(0, n_train, n_train//20):
+                end = start + n_train//20
                 s = trainS[start:end]
                 q = trainQ[start:end]
                 predict_op = test_step(s, q)
@@ -187,8 +188,8 @@ with tf.Session() as sess:
                 train_accs.append('{0:.2f}'.format(acc))
 
             val_accs = []
-            for start in range(0, n_val, n_val/20):
-                end = start + n_val/20
+            for start in range(0, n_val, n_val//20):
+                end = start + n_val//20
                 s = valS[start:end]
                 q = valQ[start:end]
                 val_preds = test_step(s, q)
@@ -198,8 +199,8 @@ with tf.Session() as sess:
                 val_accs.append('{0:.2f}'.format(acc))
 
             test_accs = []
-            for start in range(0, n_test, n_test/20):
-                end = start + n_test/20
+            for start in range(0, n_test, n_test//20):
+                end = start + n_test//20
                 s = testS[start:end]
                 q = testQ[start:end]
 
@@ -227,6 +228,6 @@ with tf.Session() as sess:
                 'Training Accuracy': train_accs,
                 'Validation Accuracy': val_accs,
                 'Testing Accuracy': test_accs
-            }, index=range(1, 21))
+            }, index=list(range(1, 21)))
             df.index.name = 'Task'
             df.to_csv(FLAGS.output_file)
