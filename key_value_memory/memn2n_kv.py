@@ -1,9 +1,6 @@
-"""Key Value Memory Networks with GRU reader.
-The implementation is based on https://arxiv.org/abs/1606.03126
-The implementation is based on http://arxiv.org/abs/1503.08895 [1]
+"""Key Value Memory Networks with optional GRU reader.
+The implementation is based on https://arxiv.org/abs/1606.03126 and http://arxiv.org/abs/1503.08895 [1]
 """
-
-
 
 import tensorflow as tf
 from six.moves import range
@@ -26,11 +23,7 @@ def position_encoding(sentence_size, embedding_size):
 def add_gradient_noise(t, stddev=1e-3, name=None):
     """
     Adds gradient noise as described in http://arxiv.org/abs/1511.06807 [2].
-
-    The input Tensor `t` should be a gradient.
-
-    The output will be `t` + gaussian noise.
-
+    The input Tensor `t` should be a gradient. The output will be `t` + gaussian noise.
     0.001 was said to be a good fixed value for memory networks [2].
     """
     with tf.op_scope([t, stddev], name, "add_gradient_noise") as name:
@@ -51,7 +44,7 @@ def zero_nil_slot(t, name=None):
         return tf.concat(0, [z, tf.slice(t, [1, 0], [-1, -1])], name=name)
 
 class MemN2N_KV(object):
-    """Key Value Memory Network."""
+    """Key-Value Memory Network."""
     def __init__(self, batch_size, vocab_size,
                  query_size, story_size, memory_key_size,
                  memory_value_size, embedding_size,
@@ -60,35 +53,28 @@ class MemN2N_KV(object):
                  reader='bow',
                  l2_lambda=0.2,
                  name='KeyValueMemN2N'):
-        """Creates an Key Value Memory Network
+
+        """
+        Creates a Key-Value Memory Network
 
         Args:
-        batch_size: The size of the batch.
-
-        vocab_size: The size of the vocabulary (should include the nil word). The nil word one-hot encoding should be 0.
-
-        query_size: largest number of words in question
-
-        story_size: largest number of words in story
-
-        embedding_size: The size of the word embedding.
-
-        memory_key_size: the size of memory slots for keys
-        memory_value_size: the size of memory slots for values
-        
-        feature_size: dimension of feature extraced from word embedding
-
-        hops: The number of hops. A hop consists of reading and addressing a memory slot.
-
-        debug_mode: If true, print some debug info about tensors
-        name: Name of the End-To-End Memory Network.\
-        Defaults to `KeyValueMemN2N`.
+        batch_size:  The size of the batch.
+        vocab_size:  The size of the vocabulary (should include the nil word). The nil word one-hot encoding should be 0.
+        query_size:  largest number of words in question
+        story_size:  largest number of words in story
+        embedding_size:  The size of the word embedding.
+        memory_key_size:  the size of memory slots for keys
+        memory_value_size:  the size of memory slots for values
+        feature_size:  dimension of feature extraced from word embedding
+        hops:  The number of hops. A hop consists of reading and addressing a memory slot.
+        debug_mode:  If true, print some debug info about tensors
+        name:  Name of the End-To-End Memory Network. Defaults to `KeyValueMemN2N`.
         """
+
         self._story_size = story_size
         self._batch_size = batch_size
         self._vocab_size = vocab_size
         self._query_size = query_size
-        #self._wiki_sentence_size = doc_size
         self._memory_key_size = memory_key_size
         self._embedding_size = embedding_size
         self._hops = hops
@@ -102,7 +88,8 @@ class MemN2N_KV(object):
         self._feature_size = feature_size
         self._n_hidden = feature_size
         self.reader_feature_size = 0
-        # trainable variables
+
+        # Trainable variables
         if reader == 'bow':
             self.reader_feature_size = self._embedding_size
         elif reader == 'simple_gru':
@@ -110,8 +97,6 @@ class MemN2N_KV(object):
 
         self.A = tf.get_variable('A', shape=[self._feature_size, self.reader_feature_size],
                                  initializer=tf.contrib.layers.xavier_initializer())
-        #self.A_mvalue = tf.get_variable('A_mvalue', shape=[self._feature_size, self.reader_feature_size],
-        #                                initializer=tf.contrib.layers.xavier_initializer())
         self.TK = tf.get_variable('TK', shape=[self._memory_value_size, self.reader_feature_size],
                                   initializer=tf.contrib.layers.xavier_initializer())
         self.TV = tf.get_variable('TV', shape=[self._memory_value_size, self.reader_feature_size],
@@ -124,14 +109,11 @@ class MemN2N_KV(object):
                                                                   initializer=tf.contrib.layers.xavier_initializer())])
             self.W_memory = tf.concat(0, [nil_word_slot, tf.get_variable('W_memory', shape=[vocab_size-1, embedding_size],
                                                                          initializer=tf.contrib.layers.xavier_initializer())])
-            # self.W_memory = self.W
-            self._nil_vars = set([self.W.name, self.W_memory.name])
-            # shape: [batch_size, query_size, embedding_size]
-            self.embedded_chars = tf.nn.embedding_lookup(self.W, self._query)
-            # shape: [batch_size, memory_size, story_size, embedding_size]
-            self.mkeys_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_key)
-            # shape: [batch_size, memory_size, story_size, embedding_size]
-            self.mvalues_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_value)
+
+            self._nil_vars = set([self.W.name, self.W_memory.name])  # self.W_memory = self.W
+            self.embedded_chars = tf.nn.embedding_lookup(self.W, self._query)  # [batch_size, query_size, embedding_size]
+            self.mkeys_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_key)  # [batch_size, memory_size, story_size, embedding_size]
+            self.mvalues_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_value)  # [batch_size, memory_size, story_size, embedding_size]
 
         if reader == 'bow':
             q_r = tf.reduce_sum(self.embedded_chars*self._encoding, 1)
@@ -139,14 +121,13 @@ class MemN2N_KV(object):
             value_r = tf.reduce_sum(self.mvalues_embedded_chars*self._encoding, 2)
         elif reader == 'simple_gru':
             x_tmp = tf.reshape(self.mkeys_embedded_chars, [-1, self._story_size, self._embedding_size])
+
             x = tf.transpose(x_tmp, [1, 0, 2])
-            # Reshape to (n_steps*batch_size, n_input)
-            x = tf.reshape(x, [-1, self._embedding_size])
-            # Split to get a list of 'n_steps'
-            # tensors of shape (doc_num, n_input)
+            x = tf.reshape(x, [-1, self._embedding_size])  # [n_steps*batch_size, n_input]
+            # Split to get a list of 'n_steps' tensors of shape [doc_num, n_input]
             x = tf.split(0, self._story_size, x)
 
-            # do the same thing on the question
+            # Do the same thing on the question
             q = tf.transpose(self.embedded_chars, [1, 0, 2])
             q = tf.reshape(q, [-1, self._embedding_size])
             q = tf.split(0, self._query_size, q)
@@ -164,23 +145,23 @@ class MemN2N_KV(object):
 
         r_list = []
         for _ in range(self._hops):
-            # define R for variables
+            # Define R for variables
             R = tf.get_variable('R{}'.format(_), shape=[self._feature_size, self._feature_size],
                                 initializer=tf.contrib.layers.xavier_initializer())
             r_list.append(R)
 
         o = self._key_addressing(doc_r, value_r, q_r, r_list)
         o = tf.transpose(o)
+
         if reader == 'bow':
             self.B = self.A
-            #self.B = tf.get_variable('B', shape=[self._feature_size, self.reader_feature_size],
-            #                         initializer=tf.contrib.layers.xavier_initializer())
         elif reader == 'simple_gru':
-            #self.B = tf.get_variable('B', shape=[self._feature_size, self._embedding_size],
             self.B = tf.get_variable('B', shape=[self._feature_size, self._embedding_size],
                                      initializer=tf.contrib.layers.xavier_initializer())
+
         #logits_bias = tf.get_variable('logits_bias', [self._vocab_size])
         y_tmp = tf.matmul(self.B, self.W_memory, transpose_b=True)
+
         with tf.name_scope("prediction"):
             logits = tf.matmul(o, y_tmp)# + logits_bias
             #logits = tf.nn.dropout(tf.matmul(o, self.B) + logits_bias, self.keep_prob)
@@ -189,14 +170,14 @@ class MemN2N_KV(object):
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, tf.cast(self._labels, tf.float32), name='cross_entropy')
             cross_entropy_sum = tf.reduce_sum(cross_entropy, name="cross_entropy_sum")
 
-            # loss op
+            # Loss op
             vars = tf.trainable_variables()
             lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in vars])
             loss_op = cross_entropy_sum + l2_lambda*lossL2
             # predict ops
             predict_op = tf.argmax(probs, 1, name="predict_op")
 
-            # assign ops
+            # Assign ops
             self.loss_op = loss_op
             self.predict_op = predict_op
             self.probs = probs
@@ -204,15 +185,12 @@ class MemN2N_KV(object):
     def _build_inputs(self):
         with tf.name_scope("input"):
             self._memory_key = tf.placeholder(tf.int32, [None, self._memory_value_size, self._story_size], name='memory_key')
-            
             self._query = tf.placeholder(tf.int32, [None, self._query_size], name='question')
-
             self._memory_value = tf.placeholder(tf.int32, [None, self._memory_value_size, self._story_size], name='memory_value')
-
             self._labels = tf.placeholder(tf.float32, [None, self._vocab_size], name='answer')
             self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
-    '''
+    """
     mkeys: the vector representation for keys in memory
     -- shape of each mkeys: [1, embedding_size]
     mvalues: the vector representation for values in memory
@@ -223,46 +201,32 @@ class MemN2N_KV(object):
     -- shape of self.A: [feature_size, embedding_size]
     -- shape of self.B: [feature_size, embedding_size]
     self.A, self.B and R are the parameters to learn
-    '''
+    """
+
     def _key_addressing(self, mkeys, mvalues, questions, r_list):
-        
         with tf.variable_scope(self._name):
-            # [feature_size, batch_size]
-            u = tf.matmul(self.A, questions, transpose_b=True)
+            u = tf.matmul(self.A, questions, transpose_b=True) # [feature_size, batch_size]
             u = [u]
             for _ in range(self._hops):
                 R = r_list[_]
                 u_temp = u[-1]
                 mk_temp = mkeys + self.TK
-                # [reader_size, batch_size x memory_size]
-                k_temp = tf.reshape(tf.transpose(mk_temp, [2, 0, 1]), [self.reader_feature_size, -1])
-                # [feature_size, batch_size x memory_size]
-                a_k_temp = tf.matmul(self.A, k_temp)
-                # [batch_size, memory_size, feature_size]
-                a_k = tf.reshape(tf.transpose(a_k_temp), [-1, self._memory_key_size, self._feature_size])
-                # [batch_size, 1, feature_size]
-                u_expanded = tf.expand_dims(tf.transpose(u_temp), [1])
-                # [batch_size, memory_size]
-                dotted = tf.reduce_sum(a_k*u_expanded, 2)
+                k_temp = tf.reshape(tf.transpose(mk_temp, [2, 0, 1]), [self.reader_feature_size, -1])  # [reader_size, batch_size x memory_size]
+                a_k_temp = tf.matmul(self.A, k_temp)  # [feature_size, batch_size x memory_size]
+                a_k = tf.reshape(tf.transpose(a_k_temp), [-1, self._memory_key_size, self._feature_size])  # [batch_size, memory_size, feature_size]
+                u_expanded = tf.expand_dims(tf.transpose(u_temp), [1])  # [batch_size, 1, feature_size]
+                dotted = tf.reduce_sum(a_k*u_expanded, 2)  # [batch_size, memory_size]
 
                 # Calculate probabilities
-                # [batch_size, memory_size]
-                probs = tf.nn.softmax(dotted)
-                # [batch_size, memory_size, 1]
-                probs_expand = tf.expand_dims(probs, -1)
+                probs = tf.nn.softmax(dotted)  # [batch_size, memory_size]
+                probs_expand = tf.expand_dims(probs, -1)  # [batch_size, memory_size, 1]
                 mv_temp = mvalues + self.TV
-                # [reader_size, batch_size x memory_size]
-                v_temp = tf.reshape(tf.transpose(mv_temp, [2, 0, 1]), [self.reader_feature_size, -1])
-                # [feature_size, batch_size x memory_size]
-                a_v_temp = tf.matmul(self.A, v_temp)
-                # [batch_size, memory_size, feature_size]
-                a_v = tf.reshape(tf.transpose(a_v_temp), [-1, self._memory_key_size, self._feature_size])
-                # [batch_size, feature_size]
-                o_k = tf.reduce_sum(probs_expand*a_v, 1)
-                # [feature_size, batch_size]
-                o_k = tf.transpose(o_k)
-                # [feature_size, batch_size]
-                u_k = tf.matmul(R, u[-1]+o_k)
+                v_temp = tf.reshape(tf.transpose(mv_temp, [2, 0, 1]), [self.reader_feature_size, -1])  # [reader_size, batch_size x memory_size]
+                a_v_temp = tf.matmul(self.A, v_temp)  # [feature_size, batch_size x memory_size]
+                a_v = tf.reshape(tf.transpose(a_v_temp), [-1, self._memory_key_size, self._feature_size])  # [batch_size, memory_size, feature_size]
+                o_k = tf.reduce_sum(probs_expand*a_v, 1)  # [batch_size, feature_size]
+                o_k = tf.transpose(o_k)  # [feature_size, batch_size]
+                u_k = tf.matmul(R, u[-1]+o_k)  # [feature_size, batch_size]
 
                 u.append(u_k)
 

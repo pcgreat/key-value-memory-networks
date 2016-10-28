@@ -1,8 +1,6 @@
 """Example running MemN2N on a single bAbI task.
 Download tasks from facebook.ai/babi """
 
-
-
 from data_utils import load_task, vectorize_data
 from sklearn import cross_validation, metrics
 from memn2n_kv import MemN2N_KV
@@ -48,7 +46,7 @@ with open(FLAGS.param_output_file, 'w') as f:
 
 print("Started Joint Model")
 
-# load all train/test data
+# Load all train/test data
 ids = list(range(1, 21))
 train, test = [], []
 for i in ids:
@@ -65,14 +63,14 @@ mean_story_size = int(np.mean([len(s) for s, _, _ in data]))
 sentence_size = max(list(map(len, chain.from_iterable(s for s, _, _ in data))))
 query_size = max(list(map(len, (q for _, q, _ in data))))
 memory_size = min(FLAGS.memory_size, max_story_size)
-vocab_size = len(word_idx) + 1 # +1 for nil word
-sentence_size = max(query_size, sentence_size) # for the position
+vocab_size = len(word_idx) + 1  # +1 for nil word
+sentence_size = max(query_size, sentence_size)  # for the position
 
 print("Longest sentence length", sentence_size)
 print("Longest story length", max_story_size)
 print("Average story length", mean_story_size)
 
-# train/validation/test sets
+# Train/validation/test sets
 trainS = []
 valS = []
 trainQ = []
@@ -123,7 +121,7 @@ batches = [(start, end) for start, end in batches]
 
 with tf.Session() as sess:
     global_step = tf.Variable(0, name="global_step", trainable=False)
-    # decay learning rate
+    # Decay learning rate
     starter_learning_rate = FLAGS.learning_rate
     learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 90000, 0.96, staircase=True)
 

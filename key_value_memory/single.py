@@ -1,8 +1,6 @@
 """Example running MemN2N on a single bAbI task.
 Download tasks from facebook.ai/babi """
 
-
-
 from data_utils import load_task, vectorize_data
 from sklearn import cross_validation, metrics
 from memn2n_kv import MemN2N_KV
@@ -11,10 +9,7 @@ from six.moves import range
 
 import tensorflow as tf
 import numpy as np
-<<<<<<< HEAD
 import functools
-=======
->>>>>>> 70f0cb4b17f131bb2e081c180338905d9d933649
 from memn2n_kv import zero_nil_slot, add_gradient_noise
 
 tf.flags.DEFINE_float("epsilon", 0.1, "Epsilon value for Adam Optimizer.")
@@ -22,7 +17,7 @@ tf.flags.DEFINE_float("l2_lambda", 0.1, "Lambda for l2 loss.")
 tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate")
 tf.flags.DEFINE_float("max_grad_norm", 20.0, "Clip gradients to this norm.")
 tf.flags.DEFINE_float("keep_prob", 1.0, "Keep probability for dropout")
-tf.flags.DEFINE_integer("evaluation_interval", 50, "Evaluate and print results every x epochs")
+tf.flags.DEFINE_integer("evaluation_interval", 10, "Evaluate and print results every x epochs")
 tf.flags.DEFINE_integer("batch_size", 32, "Batch size for training.")
 tf.flags.DEFINE_integer("feature_size", 40, "Feature size")
 tf.flags.DEFINE_integer("hops", 3, "Number of hops in the Memory Network.")
@@ -40,7 +35,7 @@ FLAGS = tf.flags.FLAGS
 
 print("Started Task:", FLAGS.task_id)
 
-# task data
+# Task data
 train, test = load_task(FLAGS.data_dir, FLAGS.task_id)
 data = train + test
 
@@ -52,21 +47,21 @@ mean_story_size = int(np.mean(list(map(len, (s for s, _, _ in data)))))
 sentence_size = max(list(map(len, chain.from_iterable(s for s, _, _ in data))))
 query_size = max(list(map(len, (q for _, q, _ in data))))
 memory_size = min(FLAGS.memory_size, max_story_size)
-vocab_size = len(word_idx) + 1 # +1 for nil word
-sentence_size = max(query_size, sentence_size) # for the position
+vocab_size = len(word_idx) + 1  # +1 for nil word
+sentence_size = max(query_size, sentence_size)  # for the position ##TODO: why?
 
 print("Longest sentence length", sentence_size)
 print("Longest story length", max_story_size)
 print("Average story length", mean_story_size)
 
-# train/validation/test sets
+# Train/validation/test sets
 S, Q, A = vectorize_data(train, word_idx, sentence_size, memory_size)
 trainS, valS, trainQ, valQ, trainA, valA = cross_validation.train_test_split(S, Q, A, test_size=.1)
 testS, testQ, testA = vectorize_data(test, word_idx, sentence_size, memory_size)
 
 print("Training set shape", trainS.shape)
 
-# params
+# Params
 n_train = trainS.shape[0]
 n_test = testS.shape[0]
 n_val = valS.shape[0]
@@ -88,21 +83,20 @@ with tf.Graph().as_default():
         log_device_placement=FLAGS.log_device_placement)
 
     global_step = tf.Variable(0, name="global_step", trainable=False)
-    # decay learning rate
+
+    # Decay learning rate
     starter_learning_rate = FLAGS.learning_rate
     learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 20000, 0.96, staircase=True)
 
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=FLAGS.epsilon)
 
     with tf.Session() as sess:
-        
         model = MemN2N_KV(batch_size=batch_size, vocab_size=vocab_size,
                           query_size=sentence_size, story_size=sentence_size, memory_key_size=memory_size,
                           feature_size=FLAGS.feature_size, memory_value_size=memory_size,
                           embedding_size=FLAGS.embedding_size, hops=FLAGS.hops, reader=FLAGS.reader,
                           l2_lambda=FLAGS.l2_lambda)
         grads_and_vars = optimizer.compute_gradients(model.loss_op)
-
         grads_and_vars = [(tf.clip_by_norm(g, FLAGS.max_grad_norm), v)
                           for g, v in grads_and_vars if g is not None]
         grads_and_vars = [(add_gradient_noise(g), v) for g, v in grads_and_vars]
@@ -150,29 +144,30 @@ with tf.Graph().as_default():
 
                 # total_cost += cost_t
             train_acc = metrics.accuracy_score(np.array(train_preds), train_labels)
-            print('-----------------------')
-            print('Epoch', t, 'Training Accuracy: {0:.2f}'.format(train_acc))
+            print('Epoch', t, 'training accuracy: {0:.2f}'.format(train_acc))
                 
             if t % FLAGS.evaluation_interval == 0:
                 val_preds = test_step(valS, valQ)
                 val_acc = metrics.accuracy_score(np.array(val_preds), val_labels)
-                print (val_preds)
+                #print (val_preds)
                 print('-----------------------')
-                print('Epoch', t, 'Validation Accuracy:', val_acc)
+                print('Epoch', t, 'validation accuracy:', val_acc)
 
-        # test on train dataset
+        # Test on train dataset
         train_preds = test_step(trainS, trainQ)
         train_acc = metrics.accuracy_score(train_labels, train_preds)
         train_acc = '{0:.2f}'.format(train_acc)
-        # eval dataset
+
+        # Eval dataset
         val_preds = test_step(valS, valQ)
         val_acc = metrics.accuracy_score(val_labels, val_preds)
         val_acc = '{0:.2f}'.format(val_acc)
-        # testing dataset
+
+        # Testing dataset
         test_preds = test_step(testS, testQ)
         test_acc = metrics.accuracy_score(test_labels, test_preds)
         test_acc = '{0:.2f}'.format(test_acc)
-        print("Testing Accuracy: {}".format(test_acc))
+        print("Testing accuracy: {}".format(test_acc))
         print('Writing final results to {}'.format(FLAGS.output_file))
         with open(FLAGS.output_file, 'a') as f:
             f.write('{}, {}, {}, {}\n'.format(FLAGS.task_id, test_acc, train_acc, val_acc))
