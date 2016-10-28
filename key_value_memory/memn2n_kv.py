@@ -7,18 +7,16 @@ from six.moves import range
 import numpy as np
 # from attention_reader import Attention_Reader
 
+
 def position_encoding(sentence_size, embedding_size):
-    """
-    Position Encoding described in section 4.1 [1]
-    """
+    """ Position Encoding described in section 4.1 [1] """
     encoding = np.ones((embedding_size, sentence_size), dtype=np.float32)
-    ls = sentence_size+1
-    le = embedding_size+1
-    for i in range(1, le):
-        for j in range(1, ls):
-            encoding[i-1, j-1] = (i - (le-1)/2) * (j - (ls-1)/2)
+    for i in range(1, embedding_size + 1):
+        for j in range(1, sentence_size + 1):
+            encoding[i-1, j-1] = (i - (embedding_size)/2) * (j - (sentence_size)/2)
     encoding = 1 + 4 * encoding / embedding_size / sentence_size
     return np.transpose(encoding)
+
 
 def add_gradient_noise(t, stddev=1e-3, name=None):
     """
@@ -30,6 +28,7 @@ def add_gradient_noise(t, stddev=1e-3, name=None):
         t = tf.convert_to_tensor(t, name="t")
         gn = tf.random_normal(tf.shape(t), stddev=stddev)
         return tf.add(t, gn, name=name)
+
 
 def zero_nil_slot(t, name=None):
     """
@@ -43,8 +42,9 @@ def zero_nil_slot(t, name=None):
         z = tf.zeros(tf.pack([1, s]))
         return tf.concat(0, [z, tf.slice(t, [1, 0], [-1, -1])], name=name)
 
+
 class MemN2N_KV(object):
-    """Key-Value Memory Network."""
+    """ Key-Value Memory Network. """
     def __init__(self, batch_size, vocab_size,
                  query_size, story_size, memory_key_size,
                  memory_value_size, embedding_size,
@@ -110,7 +110,8 @@ class MemN2N_KV(object):
             self.W_memory = tf.concat(0, [nil_word_slot, tf.get_variable('W_memory', shape=[vocab_size-1, embedding_size],
                                                                          initializer=tf.contrib.layers.xavier_initializer())])
 
-            self._nil_vars = set([self.W.name, self.W_memory.name])  # self.W_memory = self.W
+            self._nil_vars = set([self.W.name, self.W_memory.name])
+            # self.W_memory = self.W
             self.embedded_chars = tf.nn.embedding_lookup(self.W, self._query)  # [batch_size, query_size, embedding_size]
             self.mkeys_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_key)  # [batch_size, memory_size, story_size, embedding_size]
             self.mvalues_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_value)  # [batch_size, memory_size, story_size, embedding_size]
@@ -166,7 +167,7 @@ class MemN2N_KV(object):
             logits = tf.matmul(o, y_tmp)# + logits_bias
             #logits = tf.nn.dropout(tf.matmul(o, self.B) + logits_bias, self.keep_prob)
             probs = tf.nn.softmax(tf.cast(logits, tf.float32))
-            
+
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, tf.cast(self._labels, tf.float32), name='cross_entropy')
             cross_entropy_sum = tf.reduce_sum(cross_entropy, name="cross_entropy_sum")
 
@@ -174,7 +175,7 @@ class MemN2N_KV(object):
             vars = tf.trainable_variables()
             lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in vars])
             loss_op = cross_entropy_sum + l2_lambda*lossL2
-            # predict ops
+            # Predict ops
             predict_op = tf.argmax(probs, 1, name="predict_op")
 
             # Assign ops
