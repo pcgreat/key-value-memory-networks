@@ -5,7 +5,6 @@ The implementation is based on https://arxiv.org/abs/1606.03126 and http://arxiv
 import tensorflow as tf
 from six.moves import range
 import numpy as np
-# from attention_reader import Attention_Reader
 
 
 def position_encoding(sentence_size, embedding_size):
