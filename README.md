@@ -1,3 +1,5 @@
+**This code was originally created by siyuanzhao, I ported to Python 3 and cleaned up a bit**
+
 # Key Value Memory Networks
 
 This repo contains the implementation of [Key Value Memory Networks for Directly Reading Documents](https://arxiv.org/abs/1606.03126) in Tensorflow. The model is tested on [bAbI](http://arxiv.org/abs/1502.05698).
@@ -101,6 +103,7 @@ python joint.py
 
 ### Requirements
 
+* Python 3
 * tensorflow 0.9
 * scikit-learn 0.17.1
 * six 1.10.0
