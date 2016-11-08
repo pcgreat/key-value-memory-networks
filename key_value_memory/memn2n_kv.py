@@ -51,7 +51,8 @@ class MemN2N_KV(object):
                  hops=3,
                  reader='bow',
                  l2_lambda=0.2,
-                 name='KeyValueMemN2N'):
+                 name='KeyValueMemN2N',
+                 loss_function='L2'):
 
         """
         Creates a Key-Value Memory Network
@@ -68,6 +69,7 @@ class MemN2N_KV(object):
         hops:  The number of hops. A hop consists of reading and addressing a memory slot.
         debug_mode:  If true, print some debug info about tensors
         name:  Name of the End-To-End Memory Network. Defaults to `KeyValueMemN2N`.
+        loss_function: Loss function (L2, L1)
         """
 
         self._story_size = story_size
@@ -87,6 +89,7 @@ class MemN2N_KV(object):
         self._feature_size = feature_size
         self._n_hidden = feature_size
         self.reader_feature_size = 0
+        self.loss_function = loss_function
 
         # Trainable variables
         if reader == 'bow':
@@ -172,8 +175,14 @@ class MemN2N_KV(object):
 
             # Loss op
             vars = tf.trainable_variables()
-            lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in vars])
-            loss_op = cross_entropy_sum + l2_lambda*lossL2
+
+            if self.loss_function == 'L2':
+                lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in vars])
+                loss_op = cross_entropy_sum + l2_lambda*lossL2
+            elif self.loss_function == 'L1':
+                lossL1 = tf.add_n([tf.abs(v) for v in vars])
+                loss_op = cross_entropy_sum + lossL1
+
             # Predict ops
             predict_op = tf.argmax(probs, 1, name="predict_op")
 

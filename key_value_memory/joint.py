@@ -33,16 +33,16 @@ tf.flags.DEFINE_string("param_output_file", "logs/params_{}.csv".format(timestam
 tf.flags.DEFINE_string("output_file", "logs/scores_{}.csv".format(timestamp), "Name of output file for final bAbI accuracy scores.")
 tf.flags.DEFINE_integer("feature_size", 50, "Feature size")
 tf.flags.DEFINE_string("reader", "bow", "Reader for the model")
+tf.flags.DEFINE_string("loss_function", "L2", "Loss function (L2, L1)")
 FLAGS = tf.flags.FLAGS
 
 FLAGS._parse_flags()
+
 print("\nParameters:")
-with open(FLAGS.param_output_file, 'w') as f:
-    for attr, value in sorted(FLAGS.__flags.items()):
-        line = "{}={}".format(attr.upper(), value)
-        f.write(line + '\n')
-        print(line)
-    print("")
+for attr, value in sorted(FLAGS.__flags.items()):
+    line = "{}={}".format(attr.upper(), value)
+    print(line)
+print()
 
 print("Started Joint Model")
 
@@ -229,3 +229,9 @@ with tf.Session() as sess:
             }, index=list(range(1, 21)))
             df.index.name = 'Task'
             df.to_csv(FLAGS.output_file)
+
+            with open(FLAGS.output_file, 'a') as f:
+                f.write("\n\nParameters:\n")
+                for attr, value in sorted(FLAGS.__flags.items()):
+                    line = "{},{}".format(attr, value)
+                    f.write(line + '\n')
