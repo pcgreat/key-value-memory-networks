@@ -1,4 +1,5 @@
-"""Key Value Memory Networks with optional GRU reader.
+"""
+Key Value Memory Network.
 The implementation is based on https://arxiv.org/abs/1606.03126 and http://arxiv.org/abs/1503.08895 [1]
 """
 
@@ -92,10 +93,7 @@ class MemN2N_KV(object):
         self.loss_function = loss_function
 
         # Trainable variables
-        if reader == 'bow':
-            self.reader_feature_size = self._embedding_size
-        elif reader == 'simple_gru':
-            self.reader_feature_size = self._n_hidden
+        self.reader_feature_size = self._embedding_size
 
         self.A = tf.get_variable('A', shape=[self._feature_size, self.reader_feature_size],
                                  initializer=tf.contrib.layers.xavier_initializer())
@@ -118,33 +116,9 @@ class MemN2N_KV(object):
             self.mkeys_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_key)  # [batch_size, memory_size, story_size, embedding_size]
             self.mvalues_embedded_chars = tf.nn.embedding_lookup(self.W_memory, self._memory_value)  # [batch_size, memory_size, story_size, embedding_size]
 
-        if reader == 'bow':
-            q_r = tf.reduce_sum(self.embedded_chars*self._encoding, 1)
-            doc_r = tf.reduce_sum(self.mkeys_embedded_chars*self._encoding, 2)
-            value_r = tf.reduce_sum(self.mvalues_embedded_chars*self._encoding, 2)
-        elif reader == 'simple_gru':
-            x_tmp = tf.reshape(self.mkeys_embedded_chars, [-1, self._story_size, self._embedding_size])
-
-            x = tf.transpose(x_tmp, [1, 0, 2])
-            x = tf.reshape(x, [-1, self._embedding_size])  # [n_steps*batch_size, n_input]
-            # Split to get a list of 'n_steps' tensors of shape [doc_num, n_input]
-            x = tf.split(0, self._story_size, x)
-
-            # Do the same thing on the question
-            q = tf.transpose(self.embedded_chars, [1, 0, 2])
-            q = tf.reshape(q, [-1, self._embedding_size])
-            q = tf.split(0, self._query_size, q)
-
-            k_rnn = tf.nn.rnn_cell.GRUCell(self._n_hidden)
-            q_rnn = tf.nn.rnn_cell.GRUCell(self._n_hidden)
-
-            with tf.variable_scope('story_gru'):
-                doc_output, _ = tf.nn.rnn(k_rnn, x, dtype=tf.float32)
-            with tf.variable_scope('question_gru'):
-                q_output, _ = tf.nn.rnn(q_rnn, q, dtype=tf.float32)
-                doc_r = tf.nn.dropout(tf.reshape(doc_output[-1], [-1, self._memory_key_size, self._n_hidden]), self.keep_prob)
-                value_r = doc_r
-                q_r = tf.nn.dropout(q_output[-1], self.keep_prob)
+        q_r = tf.reduce_sum(self.embedded_chars*self._encoding, 1)
+        doc_r = tf.reduce_sum(self.mkeys_embedded_chars*self._encoding, 2)
+        value_r = tf.reduce_sum(self.mvalues_embedded_chars*self._encoding, 2)
 
         r_list = []
         for _ in range(self._hops):
@@ -156,18 +130,13 @@ class MemN2N_KV(object):
         o = self._key_addressing(doc_r, value_r, q_r, r_list)
         o = tf.transpose(o)
 
-        if reader == 'bow':
-            self.B = self.A
-        elif reader == 'simple_gru':
-            self.B = tf.get_variable('B', shape=[self._feature_size, self._embedding_size],
-                                     initializer=tf.contrib.layers.xavier_initializer())
+        self.B = self.A
 
-        #logits_bias = tf.get_variable('logits_bias', [self._vocab_size])
         y_tmp = tf.matmul(self.B, self.W_memory, transpose_b=True)
 
         with tf.name_scope("prediction"):
-            logits = tf.matmul(o, y_tmp)# + logits_bias
-            #logits = tf.nn.dropout(tf.matmul(o, self.B) + logits_bias, self.keep_prob)
+            #logits = tf.matmul(o, y_tmp)
+            logits = tf.nn.dropout(tf.matmul(o, y_tmp), self.keep_prob)
             probs = tf.nn.softmax(tf.cast(logits, tf.float32))
 
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, tf.cast(self._labels, tf.float32), name='cross_entropy')

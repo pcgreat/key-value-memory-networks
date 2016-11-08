@@ -32,7 +32,6 @@ tf.flags.DEFINE_string("data_dir", "data/tasks_1-20_v1-2/en/", "Directory contai
 tf.flags.DEFINE_string("param_output_file", "logs/params_{}.csv".format(timestamp), "Name of output file for model hyperparameters")
 tf.flags.DEFINE_string("output_file", "logs/scores_{}.csv".format(timestamp), "Name of output file for final bAbI accuracy scores.")
 tf.flags.DEFINE_integer("feature_size", 50, "Feature size")
-tf.flags.DEFINE_string("reader", "bow", "Reader for the model")
 tf.flags.DEFINE_string("loss_function", "L2", "Loss function (L2, L1)")
 FLAGS = tf.flags.FLAGS
 
@@ -129,7 +128,7 @@ with tf.Session() as sess:
 
     model = MemN2N_KV(batch_size=batch_size, vocab_size=vocab_size,
                       query_size=sentence_size, story_size=sentence_size, memory_key_size=memory_size,
-                      feature_size=FLAGS.feature_size, memory_value_size=memory_size, embedding_size=FLAGS.embedding_size, hops=FLAGS.hops, reader=FLAGS.reader, l2_lambda=FLAGS.l2_lambda)
+                      feature_size=FLAGS.feature_size, memory_value_size=memory_size, embedding_size=FLAGS.embedding_size, hops=FLAGS.hops, l2_lambda=FLAGS.l2_lambda, loss_function=FLAGS.loss_function)
     grads_and_vars = optimizer.compute_gradients(model.loss_op)
 
     grads_and_vars = [(tf.clip_by_norm(g, FLAGS.max_grad_norm), v)
