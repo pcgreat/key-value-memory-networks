@@ -1,8 +1,8 @@
-
-
 import os
 import re
+
 import numpy as np
+
 
 def load_task(data_dir, task_id, only_supporting=False):
     """
@@ -21,13 +21,14 @@ def load_task(data_dir, task_id, only_supporting=False):
     test_data = get_stories(test_file, only_supporting)
     return train_data, test_data
 
+
 def tokenize(sent):
     """
     Return the tokens of a sentence including punctuation.
     >>> tokenize('Bob dropped the apple. Where is the apple?')
     ['Bob', 'dropped', 'the', 'apple', '.', 'Where', 'is', 'the', 'apple', '?']
     """
-    return [x.strip() for x in re.split('(\W+)?', sent) if x.strip()]
+    return [x.strip() for x in re.split('(\W+)', sent) if x.strip()]
 
 
 def parse_stories(lines, only_supporting=False):
@@ -44,10 +45,10 @@ def parse_stories(lines, only_supporting=False):
         nid = int(nid)
         if nid == 1:
             story = []
-        if '\t' in line: # Question
+        if '\t' in line:  # Question
             q, a, supporting = line.split('\t')
             q = tokenize(q)
-            #a = tokenize(a)
+            # a = tokenize(a)
             # Answer is one vocab word even if it's actually multiple words ##TODO: why?
             a = [a]
             substory = None
@@ -66,7 +67,7 @@ def parse_stories(lines, only_supporting=False):
 
             data.append((substory, q, a))
             story.append('')
-        else: # Regular sentence
+        else:  # Regular sentence
             # Remove periods
             sent = tokenize(line)
             if sent[-1] == ".":
@@ -82,6 +83,7 @@ def get_stories(f, only_supporting=False):
     """
     with open(f) as f:
         return parse_stories(f.readlines(), only_supporting=only_supporting)
+
 
 def vectorize_data(data, word_idx, sentence_size, memory_size):
     """

@@ -1,4 +1,5 @@
 **This code was originally created by siyuanzhao, I ported to Python 3 and cleaned up a bit**
+** update with tensorflow 1.0 **
 
 # Key Value Memory Networks
 

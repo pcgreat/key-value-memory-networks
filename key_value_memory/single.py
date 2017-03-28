@@ -1,16 +1,16 @@
 """Example running MemN2N on a single bAbI task.
 Download tasks from facebook.ai/babi """
 
-from data_utils import load_task, vectorize_data
-from sklearn import cross_validation, metrics
-from memn2n_kv import MemN2N_KV
-from itertools import chain
-from six.moves import range
-
-import tensorflow as tf
-import numpy as np
 import functools
+from itertools import chain
+
+import numpy as np
+import tensorflow as tf
+from data_utils import load_task, vectorize_data
+from memn2n_kv import MemN2N_KV
 from memn2n_kv import zero_nil_slot, add_gradient_noise
+from sklearn import metrics
+from sklearn.model_selection import train_test_split
 
 tf.flags.DEFINE_float("epsilon", 0.1, "Epsilon value for Adam Optimizer.")
 tf.flags.DEFINE_float("l2_lambda", 0.1, "Lambda for l2 loss.")
@@ -56,7 +56,7 @@ print("Average story length", mean_story_size)
 
 # Train/validation/test sets
 S, Q, A = vectorize_data(train, word_idx, sentence_size, memory_size)
-trainS, valS, trainQ, valQ, trainA, valA = cross_validation.train_test_split(S, Q, A, test_size=.1)
+trainS, valS, trainQ, valQ, trainA, valA = train_test_split(S, Q, A, test_size=.1)
 testS, testQ, testA = vectorize_data(test, word_idx, sentence_size, memory_size)
 
 print("Training set shape", trainS.shape)
@@ -75,7 +75,7 @@ test_labels = np.argmax(testA, axis=1)
 val_labels = np.argmax(valA, axis=1)
 
 batch_size = FLAGS.batch_size
-batches = list(zip(list(range(0, n_train-batch_size, batch_size)), list(range(batch_size, n_train, batch_size))))
+batches = list(zip(list(range(0, n_train - batch_size, batch_size)), list(range(batch_size, n_train, batch_size))))
 
 with tf.Graph().as_default():
     session_conf = tf.ConfigProto(
@@ -108,7 +108,8 @@ with tf.Graph().as_default():
                 nil_grads_and_vars.append((g, v))
 
         train_op = optimizer.apply_gradients(nil_grads_and_vars, name="train_op", global_step=global_step)
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
+
 
         def train_step(s, q, a):
             feed_dict = {
@@ -121,6 +122,7 @@ with tf.Graph().as_default():
             _, step, predict_op = sess.run([train_op, global_step, model.predict_op], feed_dict)
             return predict_op
 
+
         def test_step(s, q):
             feed_dict = {
                 model._query: q,
@@ -131,7 +133,8 @@ with tf.Graph().as_default():
             preds = sess.run(model.predict_op, feed_dict)
             return preds
 
-        for t in range(1, FLAGS.epochs+1):
+
+        for t in range(1, FLAGS.epochs + 1):
             np.random.shuffle(batches)
             train_preds = []
             for start in range(0, n_train, batch_size):
@@ -145,11 +148,11 @@ with tf.Graph().as_default():
                 # total_cost += cost_t
             train_acc = metrics.accuracy_score(np.array(train_preds), train_labels)
             print('Epoch', t, 'training accuracy: {0:.2f}'.format(train_acc))
-                
+
             if t % FLAGS.evaluation_interval == 0:
                 val_preds = test_step(valS, valQ)
                 val_acc = metrics.accuracy_score(np.array(val_preds), val_labels)
-                #print (val_preds)
+                # print (val_preds)
                 print('-----------------------')
                 print('Epoch', t, 'validation accuracy:', val_acc)
 
