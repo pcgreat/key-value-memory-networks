@@ -4,6 +4,7 @@ The implementation is based on https://arxiv.org/abs/1606.03126 and http://arxiv
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.contrib.rnn import GRUCell, static_rnn
 
 
 def position_encoding(sentence_size, embedding_size):
@@ -130,20 +131,20 @@ class MemN2N_KV(object):
             x = tf.transpose(x_tmp, [1, 0, 2])
             x = tf.reshape(x, [-1, self._embedding_size])  # [n_steps*batch_size, n_input]
             # Split to get a list of 'n_steps' tensors of shape [doc_num, n_input]
-            x = tf.split(0, self._story_size, x)
+            x = tf.split(x, self._story_size, axis=0)
 
             # Do the same thing on the question
             q = tf.transpose(self.embedded_chars, [1, 0, 2])
             q = tf.reshape(q, [-1, self._embedding_size])
-            q = tf.split(0, self._query_size, q)
+            q = tf.split(q, self._query_size, axis=0)
 
-            k_rnn = tf.nn.rnn_cell.GRUCell(self._n_hidden)
-            q_rnn = tf.nn.rnn_cell.GRUCell(self._n_hidden)
+            k_rnn = GRUCell(self._n_hidden)
+            q_rnn = GRUCell(self._n_hidden)
 
             with tf.variable_scope('story_gru'):
-                doc_output, _ = tf.nn.rnn(k_rnn, x, dtype=tf.float32)
+                doc_output, _ = static_rnn(k_rnn, x, dtype=tf.float32)
             with tf.variable_scope('question_gru'):
-                q_output, _ = tf.nn.rnn(q_rnn, q, dtype=tf.float32)
+                q_output, _ = static_rnn(q_rnn, q, dtype=tf.float32)
                 doc_r = tf.nn.dropout(tf.reshape(doc_output[-1], [-1, self._memory_key_size, self._n_hidden]),
                                       self.keep_prob)
                 value_r = doc_r
